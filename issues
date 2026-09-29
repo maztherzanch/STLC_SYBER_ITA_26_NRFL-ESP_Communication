@@ -1,6 +1,6 @@
 En este documento se encuentra la lista de tareas a realizar y cumplir, segun las espectativas y necesidades del proyecto.
 
-Creación del nodo central, el cual en fases de pruebas debe cumplir con dos objetivos:
+|Creación del nodo central, el cual en fases de pruebas debe cumplir con dos objetivos:
   -Aceptar conexiones y datos de todos los elementos de la red
   -Abrir conexiones y enviar datos a todos los elementos de la red
 
@@ -11,3 +11,12 @@ debe crusar:
             001 -> 012 -> NC001 -> "hola"
 
 Y comprobar que el mensaje llegue y sea interpretado, unicamente por el dispositivo que contenga el numero o codigo de dispositivo.
+
+
+|*Es importante reconocer que todos los dispisitivos tienen la capacidad para transmitir y recibir señales (RX/TX) y deberan alternar
+su funcion dependiendo el rol que en el momento sea solicitado por el usuario
+  -RX es el estado natural, en el que el dispositivo permanece en escucha, aun estado en modo de espera
+  -TX es el estado al que cambia el dispositivo cuando recibe instrucciones para enviar un mensaje
+        
+        Cambia de modo -> Genera la cadena de envío -> Establece la conexion con el nodo central -> Envia el mensaje -> 
+                                            Vuelve a modo de espera
