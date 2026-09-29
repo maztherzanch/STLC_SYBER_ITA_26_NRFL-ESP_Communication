@@ -1,0 +1,13 @@
+En este documento se encuentra la lista de tareas a realizar y cumplir, segun las espectativas y necesidades del proyecto.
+
+Creación del nodo central, el cual en fases de pruebas debe cumplir con dos objetivos:
+  -Aceptar conexiones y datos de todos los elementos de la red
+  -Abrir conexiones y enviar datos a todos los elementos de la red
+
+Posteriormente y una vez el nodo puede establecer ambas conexiones, es necesario especificar el camino de la ruta del mensaje, 
+es decir, aquellos puntos de contacto (Emisor y Receptor), deben incluir en la cadena de su mensaje, el o los nodos por los que
+debe crusar:
+      Codigo del emisor -> Código del receptor -> Código del nodo concentrador -> Mensaje
+            001 -> 012 -> NC001 -> "hola"
+
+Y comprobar que el mensaje llegue y sea interpretado, unicamente por el dispositivo que contenga el numero o codigo de dispositivo.
