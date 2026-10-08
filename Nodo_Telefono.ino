@@ -12,6 +12,9 @@
      /estado      -> muestra en que estado y canal esta el nodo
      texto normal -> durante una llamada, se lo manda a la otra persona
 
+  Mensajes de la central: aparecen como [CENTRAL] ... en cualquier momento,
+  incluso a media llamada (v2).
+
   Boton BOOT: contesta si esta timbrando, cuelga si esta en llamada.
   LED: parpadea rapido = timbrando, lento = llamando, fijo = en llamada.
 
@@ -76,7 +79,8 @@
 
 enum Tipo : uint8_t {
   REGISTRO = 1, LLAMAR, CONTESTAR, RECHAZAR, LIBERAR,
-  ENTRANTE, CONECTAR, RESPUESTA, TEXTO, KEEPALIVE, COLGAR
+  ENTRANTE, CONECTAR, RESPUESTA, TEXTO, KEEPALIVE, COLGAR,
+  AVISO          // central -> nodo : mensaje de la central (v2)
 };
 enum Codigo : uint8_t {
   R_TIMBRANDO = 1, R_OCUPADO, R_NO_DISPONIBLE, R_RECHAZADO,
@@ -218,6 +222,10 @@ void procesarPaquete(Paquete &p) {
   if (p.origen == ID_CENTRAL) {
     centralPerdida = false;
     switch (p.tipo) {
+      case AVISO:      // mensaje de la central: se muestra en cualquier estado
+        Serial.printf("\n[CENTRAL] %s\n", p.texto);
+        break;
+
       case ENTRANTE:
         if (estado != REPOSO) break;
         pareja = p.dato;
