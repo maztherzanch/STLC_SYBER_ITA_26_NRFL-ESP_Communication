@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teléfono nRF24 · Aero</title>
+<style>
+:root{--ink:#0b3d5e;--mut:#4d7a96;--g:#3fbf4f;--a:#ff9d1c;--r:#e8453a;--c:#1fa5e6;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--ink);padding:clamp(12px,3vw,32px);--col:#7a9bb3;
+  font:15px/1.5 "Segoe UI","Frutiger","Trebuchet MS",Verdana,sans-serif;
+  background:
+   radial-gradient(circle at 12% 18%,rgba(255,255,255,.75) 0 40px,transparent 41px),
+   radial-gradient(circle at 85% 12%,rgba(255,255,255,.5) 0 70px,transparent 71px),
+   radial-gradient(circle at 78% 82%,rgba(255,255,255,.45) 0 110px,transparent 111px),
+   radial-gradient(circle at 8% 88%,rgba(190,255,200,.6) 0 90px,transparent 91px),
+   radial-gradient(ellipse at 50% 120%,#9be86b 0,transparent 55%),
+   linear-gradient(180deg,#2a9ee6 0%,#7fd3f7 55%,#d6f4ff 100%) fixed}
+body[data-s=REPOSO]{--col:var(--g)}
+body[data-s=LLAMANDO],body[data-s=TIMBRANDO]{--col:var(--a)}
+body[data-s="EN LLAMADA"]{--col:var(--r)}
+.wrap{max-width:980px;margin:auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:14px 20px;border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.35));border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 8px 24px rgba(11,61,94,.22),inset 0 1px 0 #fff;backdrop-filter:blur(10px)}
+h1{margin:0;font:600 clamp(22px,4.5vw,34px)/1.1 "Segoe UI","Frutiger",sans-serif;color:var(--ink);text-shadow:0 1px 0 #fff;display:flex;align-items:center;gap:12px}
+.ocp{width:36px;height:36px;border-radius:50%;flex:none;border:1px solid #fff;
+  background:radial-gradient(circle at 32% 22%,#fff,rgba(255,255,255,0) 40%),radial-gradient(circle at 50% 70%,#5fe06a,#1a8f3a);box-shadow:0 3px 8px rgba(11,61,94,.35)}
+.sub{color:var(--mut);margin:4px 0 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}
+.panel{border-radius:22px;padding:0 20px 20px;overflow:hidden;position:relative;
+  background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.5));border:1px solid rgba(255,255,255,.95);
+  box-shadow:0 10px 28px rgba(11,61,94,.25),inset 0 1px 0 #fff;backdrop-filter:blur(12px)}
+h2{margin:0 -20px 16px;padding:8px 20px;font:600 15px/1.4 "Segoe UI",sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,60,100,.6);
+  background:linear-gradient(180deg,#5cc4f5 0%,#1c8fd6 50%,#1479c0 51%,#3aa6e8 100%);border-bottom:1px solid rgba(255,255,255,.6)}
+button,input,select{font:inherit}
+button{color:#fff;text-shadow:0 1px 1px rgba(0,50,90,.5);border:1px solid rgba(0,70,110,.55);border-radius:999px;padding:7px 18px;cursor:pointer;font-weight:600;
+  background:linear-gradient(180deg,#8be0ff 0%,#2aa9ec 48%,#1a8ad4 52%,#4cc0f5 100%);
+  box-shadow:0 3px 6px rgba(11,61,94,.3),inset 0 1px 0 rgba(255,255,255,.9)}
+button:hover:not(:disabled){filter:brightness(1.08)}
+button:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 2px rgba(11,61,94,.3),inset 0 2px 4px rgba(0,50,90,.35)}
+button.sec{background:linear-gradient(180deg,#f4fbff 0%,#c3dceb 48%,#a9c9de 52%,#dff1fb 100%);color:var(--ink);text-shadow:0 1px 0 #fff;border-color:rgba(60,110,140,.55)}
+button.ok{background:linear-gradient(180deg,#b6f59a 0%,#45c64a 48%,#2fa83a 52%,#6fdc62 100%);border-color:rgba(20,100,30,.6)}
+button.bad{background:linear-gradient(180deg,#ffaaa0 0%,#ec4a3d 48%,#cf3226 52%,#f56a5c 100%);border-color:rgba(120,20,15,.6)}
+button:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.5)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(255,157,28,.7);outline-offset:2px}
+input,select{background:rgba(255,255,255,.9);color:var(--ink);border:1px solid #8fb8d0;border-radius:10px;padding:6px 10px;box-shadow:inset 0 2px 4px rgba(11,61,94,.15)}
+select:disabled{opacity:.5}
+input[type=range]{padding:0;accent-color:#1fa5e6;box-shadow:none}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.board{display:flex;gap:18px;align-items:center;margin-bottom:16px}
+.lamp{position:relative;flex:none;width:78px;height:78px;border-radius:50%;border:2px solid rgba(255,255,255,.95);
+  background:radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.95) 0 30%,rgba(255,255,255,0) 55%),radial-gradient(circle at 50% 75%,var(--col),#0b3d5e 190%);
+  box-shadow:0 0 22px var(--col),0 6px 12px rgba(11,61,94,.35),inset 0 -6px 12px rgba(0,0,0,.2)}
+[data-s=LLAMANDO] .lamp,[data-s=TIMBRANDO] .lamp{animation:par .7s ease-in-out infinite}
+[data-s="EN LLAMADA"] .lamp{box-shadow:0 0 34px var(--col),0 6px 12px rgba(11,61,94,.35),inset 0 -6px 12px rgba(0,0,0,.2)}
+@keyframes par{50%{opacity:.45;transform:scale(.95)}}
+@media (prefers-reduced-motion:reduce){.lamp{animation:none!important}}
+.big{font:600 clamp(22px,4.5vw,30px)/1.1 "Segoe UI",sans-serif;text-transform:uppercase;color:var(--ink);letter-spacing:.03em;text-shadow:0 1px 0 #fff}
+.who{color:var(--mut);margin-top:6px}
+label{display:block;color:var(--mut);font-weight:600}
+.meter{position:relative;height:18px;border-radius:999px;margin:4px 0 12px;overflow:hidden;background:rgba(11,61,94,.18);border:1px solid #fff;box-shadow:inset 0 2px 4px rgba(11,61,94,.3)}
+.meter i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(180deg,#c9ffa8,#44c94c 55%,#2da83a);transition:width .06s}
+.meter::after{content:"";position:absolute;inset:0 0 50% 0;background:linear-gradient(180deg,rgba(255,255,255,.65),rgba(255,255,255,.1))}
+#log{height:210px;overflow:auto;border-radius:14px;padding:10px;font:13px/1.5 Consolas,"Courier New",monospace;color:var(--ink);
+  background:rgba(255,255,255,.8);border:1px solid #8fb8d0;box-shadow:inset 0 2px 6px rgba(11,61,94,.18)}
+#log .me{color:#0f7fc4;font-weight:600} #log .err{color:var(--r);font-weight:600}
+#aviso{display:none;background:rgba(255,235,230,.92);border:1px solid var(--r);border-radius:14px;color:#8a1f16;padding:10px 14px}
+.stats{color:var(--mut);font-variant-numeric:tabular-nums}
+.dir{text-align:center;color:#fff;font-size:13px;letter-spacing:.05em;text-shadow:0 1px 3px rgba(0,60,100,.6)}
+</style>
+</head>
+<body data-s="DESCONECTADO">
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="ocp"></span>Teléfono nRF24</h1>
+      <p class="sub">Habla y escucha desde la PC, con voz cristalina.</p>
+    </div>
+    <div class="row">
+      <label for="fw" style="display:inline">Firmware</label>
+      <select id="fw">
+        <option value="b64">Audio base64 (sdl)</option>
+        <option value="adpcm" selected>Audio ADPCM binario</option>
+      </select>
+      <label for="baud" style="display:inline">Velocidad</label>
+      <select id="baud"><option>115200</option><option>230400</option><option selected>460800</option><option>500000</option><option>921600</option></select>
+      <button id="bCon">Conectar ESP32</button>
+    </div>
+  </header>
+
+  <div id="aviso">Este navegador no soporta Web Serial. Abre la página en Chrome o Edge de escritorio.</div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Llamada</h2>
+      <div class="board">
+        <div class="lamp"></div>
+        <div><div class="big" id="estado">DESCONECTADO</div>
+        <div class="who"><span id="nodo">Sin nodo</span> · con <span id="pareja">—</span></div></div>
+      </div>
+      <div class="row" style="margin-bottom:12px">
+        <input id="dest" type="number" min="1" max="254" value="2" style="width:84px" aria-label="Número de nodo a llamar">
+        <button id="bLlamar" disabled>Llamar</button>
+        <button id="bCol" class="bad" disabled>Colgar</button>
+      </div>
+      <div class="row">
+        <button id="bCont" class="ok" disabled>Contestar</button>
+        <button id="bRech" class="sec" disabled>Rechazar</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Audio</h2>
+      <label>Tu voz (sale por radio)</label>
+      <div class="meter"><i id="mL"></i></div>
+      <label>Voz del otro (llega por radio)</label>
+      <div class="meter"><i id="mR"></i></div>
+      <div class="row" style="margin-bottom:12px">
+        <button id="bMute" class="sec">Silenciar micrófono</button>
+        <label for="vol" style="display:inline">Volumen</label>
+        <input id="vol" type="range" min="0" max="2" step="0.05" value="1" style="width:120px">
+      </div>
+      <div class="stats" id="stats">Sin datos todavía.</div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Consola del nodo</h2>
+    <div id="log" role="log"></div>
+    <form id="fCmd" class="row" style="margin-top:10px">
+      <input id="cmd" style="flex:1;min-width:200px" placeholder="/estado, /llamar 2, texto para la otra persona…" autocomplete="off" aria-label="Comando">
+      <button class="sec">Enviar</button>
+    </form>
+  </section>
+  <div class="dir">Conectados, sin cables · ESP32 + nRF24L01</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), te=new TextEncoder(), td=new TextDecoder();
+const esperar=ms=>new Promise(r=>setTimeout(r,ms));
+const STEP=[7,8,9,10,11,12,13,14,16,17,19,21,23,25,28,31,34,37,41,45,50,55,60,66,73,80,88,97,107,118,130,143,157,173,190,209,230,253,279,307,337,371,408,449,494,544,598,658,724,796,876,963,1060,1166,1282,1411,1552,1707,1878,2066,2272,2499,2749,3024,3327,3660,4026,4428,4871,5358,5894,6484,7132,7845,8630,9493,10442,11487,12635,13899,15289,16818,18500,20350,22385,24623,27086,29794,32767];
+const IDX=[-1,-1,-1,-1,2,4,6,8,-1,-1,-1,-1,2,4,6,8];
+const N=52, CUERPO=29, B64N=26, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let port,writer,reader,leyendo,ctx,cap,play,gain,mic,estado='DESCONECTADO',silencio=false;
+let activo=false,cerrando=false,avisado=false;
+let tx=0,rx=0,lvlL=0,lvlR=0,bufMs=0,ringT;
+const modo=()=>$('#fw').value;          // 'b64' (líneas AUDIO:/A:) o 'adpcm' (tramas binarias 0xFE 0xFF)
+
+/* ---------- ADPCM IMA 4 bits: cada paquete lleva su estado inicial (índice + predictor) ---------- */
+const E={p:0,i:0}, pcm=new Int16Array(N); let nPcm=0;
+function codificar(s){
+  const o=new Uint8Array(CUERPO); o[0]=E.i; o[1]=E.p&255; o[2]=(E.p>>8)&255;
+  for(let n=0;n<N;n++){
+    let d=s[n]-E.p,sg=0; if(d<0){sg=8;d=-d}
+    let st=STEP[E.i],c=0,v=st>>3;
+    if(d>=st){c|=4;d-=st;v+=st} st>>=1;
+    if(d>=st){c|=2;d-=st;v+=st} st>>=1;
+    if(d>=st){c|=1;v+=st}
+    E.p=clamp(E.p+(sg?-v:v),-32768,32767);
+    E.i=clamp(E.i+IDX[c|sg],0,88);
+    c|=sg; o[3+(n>>1)]|=(n&1)?c<<4:c;
+  }
+  return o;
+}
+function decodificar(b){
+  let i=Math.min(88,b[0]),p=((b[1]|b[2]<<8)<<16)>>16; const f=new Float32Array(N);
+  for(let n=0;n<N;n++){
+    const x=b[3+(n>>1)],c=(n&1)?x>>4:x&15; let st=STEP[i],v=st>>3;
+    if(c&4)v+=st; if(c&2)v+=st>>1; if(c&1)v+=st>>2;
+    p=clamp(p+((c&8)?-v:v),-32768,32767); i=clamp(i+IDX[c],0,88); f[n]=p/32768;
+  }
+  return f;
+}
+
+/* ---------- Reproductor con búfer anti-cortes (sin AudioWorklet, así funciona también abriendo el archivo con doble clic) ---------- */
+const Q=[]; let qN=0,qO=0,sonando=false;
+function encolar(f){
+  Q.push(f); qN+=f.length;
+  while(qN>2400){const c=Q.shift(); qN-=c.length-qO; qO=0}     // máximo ~300 ms de retraso
+}
+function vaciarCola(){Q.length=0;qN=qO=0;sonando=false}
+function llenar(e){
+  const y=e.outputBuffer.getChannelData(0); let k=0;
+  if(!sonando&&qN>=640)sonando=true;                            // espera ~80 ms antes de arrancar
+  while(sonando&&k<y.length){
+    if(!Q.length){sonando=false;break}
+    const c=Q[0],m=Math.min(c.length-qO,y.length-k);
+    y.set(c.subarray(qO,qO+m),k);k+=m;qO+=m;qN-=m;
+    if(qO>=c.length){Q.shift();qO=0}
+  }
+  for(;k<y.length;k++)y[k]=0;
+  bufMs=qN/8;
+}
+
+async function iniciarAudio(){
+  play=ctx.createScriptProcessor(512,1,1); play.onaudioprocess=llenar;
+  gain=ctx.createGain(); gain.gain.value=$('#vol').value;
+  play.connect(gain).connect(ctx.destination);
+  mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
+  cap=ctx.createScriptProcessor(512,1,1);
+  cap.onaudioprocess=e=>alMicrofono(e.inputBuffer.getChannelData(0));
+  ctx.createMediaStreamSource(mic).connect(cap); cap.connect(ctx.destination);   // la salida de cap queda en silencio
+  log('Micrófono y altavoces activos a 8 kHz.');
+}
+
+/* ---------- Voz de la PC hacia el ESP32 ---------- */
+const u8=new Uint8Array(B64N); let nU8=0;
+function alMicrofono(f){
+  const md=modo(); let m=0;
+  for(let k=0;k<f.length;k++){
+    const x=f[k],a=Math.abs(x); if(a>m)m=a;
+    if(md==='adpcm'){
+      pcm[nPcm++]=clamp(x,-1,1)*32767;
+      if(nPcm===N){
+        nPcm=0; const b=codificar(pcm);
+        if(estado==='EN LLAMADA'&&!silencio){const fr=new Uint8Array(CUERPO+2);fr[0]=0xFE;fr[1]=0xFF;fr.set(b,2);escribir(fr,1);tx++}
+      }
+    }else{
+      u8[nU8++]=clamp(Math.floor((x+1)*128),0,255);
+      if(nU8===B64N){
+        nU8=0;
+        if(estado==='EN LLAMADA'&&!silencio){escribir(te.encode('A:'+btoa(String.fromCharCode(...u8))+'\n'),1);tx++}
+      }
+    }
+  }
+  lvlL=Math.max(lvlL,m);
+}
+
+/* ---------- Voz del ESP32 hacia la PC ---------- */
+function avisoModo(txt){if(avisado)return;avisado=true;log(txt,'err')}
+function audioRx(b){                 // trama ADPCM binaria
+  rx++; if(estado!=='EN LLAMADA'||!play)return;
+  if(modo()!=='adpcm'){avisoModo('Está llegando audio ADPCM. Cambia Firmware a "Audio ADPCM binario" (460800) y vuelve a conectar.');return}
+  const f=decodificar(b); let m=0; for(const x of f)m=Math.max(m,Math.abs(x));
+  lvlR=Math.max(lvlR,m); encolar(f);
+}
+function audioB64(s){                // línea "AUDIO:<base64>"
+  let r; try{r=atob(s.trim())}catch{return}
+  rx++; if(estado!=='EN LLAMADA'||!play)return;
+  if(modo()!=='b64'){avisoModo('Está llegando audio base64. Cambia Firmware a "Audio base64 (sdl)" (500000) y vuelve a conectar.');return}
+  const f=new Float32Array(r.length); let m=0;
+  for(let i=0;i<r.length;i++){const x=r.charCodeAt(i)/128-1;f[i]=x;const a=Math.abs(x);if(a>m)m=a}
+  lvlR=Math.max(lvlR,m); encolar(f);
+}
+
+/* ---------- Puerto serie: texto + tramas de audio (0xFE 0xFF + 29 bytes) ---------- */
+let fase=0,cuerpo=new Uint8Array(CUERPO),pos=0,ln=[],prev=0,pend=0,ultAud=0,destSucio=false;
+let manual=false,ultimo=null,abriendo=false;
+function procesar(u){
+  for(const b of u){
+    if(fase===2){
+      if(prev===0xFE&&b===0xFF){pos=0;prev=0;continue}        // llegó otra cabecera: se perdió un byte, resincroniza
+      prev=b;cuerpo[pos++]=b;
+      if(pos===CUERPO){fase=0;audioRx(cuerpo)}
+      continue;
+    }
+    if(fase===1){fase=0;if(b===0xFF){fase=2;pos=0;prev=0;continue}}
+    if(b===0xFE)fase=1;
+    else if(b===10){const t=td.decode(new Uint8Array(ln)).trim();ln=[];if(t)alLinea(t)}
+    else if(b!==13&&ln.length<600)ln.push(b);
+  }
+}
+async function leer(p){
+  while(activo&&p===port&&p.readable){
+    reader=p.readable.getReader();
+    try{for(;;){const{value,done}=await reader.read();if(done)break;if(value)procesar(value)}}
+    catch(e){if(activo)log('Error de lectura ('+e.name+'): '+e.message,'err');await esperar(50)}   // errores no fatales: sigue leyendo
+    finally{try{reader.releaseLock()}catch{}}
+  }
+  if(activo&&p===port)perdido('El puerto dejó de responder.');
+}
+function escribir(u,audio){                                  // el audio se descarta si la cola se atasca (evita retraso acumulado)
+  if(!writer||(audio&&pend>12))return;
+  pend++;writer.write(u).catch(()=>{}).finally(()=>pend--);
+}
+function cmd(t,callado){
+  if(!activo){log('No hay conexión con el ESP32.','err');return}
+  if(!callado)log('> '+t,'me');escribir(te.encode(t+'\n'))
+}
+function activarAudio(){
+  if(!activo||modo()!=='adpcm')return;
+  const n=Date.now();if(n-ultAud<800)return;ultAud=n;
+  cmd('/audio 1',1);cmd('/estado',1)
+}
+const sugerir=n=>{if(!destSucio)$('#dest').value=n==1?2:1};
+
+function alLinea(t){
+  if(t.startsWith('AUDIO:')){audioB64(t.slice(6));return}
+  log(t); let m;
+  if((m=t.match(/Nodo telefono (\d+) listo/))){$('#nodo').textContent='Nodo '+m[1];sugerir(m[1]);setState('REPOSO');activarAudio()}
+  else if(/Ruido de fondo/.test(t))activarAudio();
+  else if((m=t.match(/El nodo (\d+) te llama/)))setState('TIMBRANDO',m[1]);
+  else if((m=t.match(/Llamando al nodo (\d+)/)))setState('LLAMANDO',m[1]);
+  else if(/CONECTADO con/.test(t)){m=t.match(/(\d+)/);setState('EN LLAMADA',m&&m[1])}
+  else if((m=t.match(/^Nodo (\d+) \| ([A-Z ]+?) \|(?:.*con nodo (\d+))?/))){$('#nodo').textContent='Nodo '+m[1];sugerir(m[1]);setState(m[2],m[3])}
+  else if(/En reposo|colg|terminad|rechazad|Cancelando/i.test(t))setState('REPOSO');
+}
+
+/* ---------- Interfaz ---------- */
+function log(t,c){const l=$('#log'),pie=l.scrollHeight-l.scrollTop-l.clientHeight<40,d=document.createElement('div');d.textContent=t;if(c)d.className=c;l.append(d);while(l.childElementCount>300)l.firstChild.remove();if(pie)l.scrollTop=l.scrollHeight}
+function timbre(){if(!ctx)return;[0,.3].forEach(t=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=t?480:440;g.gain.value=.15;o.connect(g).connect(ctx.destination);o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+.2)})}
+function setState(s,p){
+  estado=s; document.body.dataset.s=s; $('#estado').textContent=s;
+  if(p)$('#pareja').textContent='nodo '+p; if(s==='REPOSO'||s==='DESCONECTADO')$('#pareja').textContent='—';
+  // Con el firmware ADPCM los botones siguen el estado; con el de base64 quedan todos activos porque no avisa de todos los cambios
+  const on=activo, estricto=modo()==='adpcm';
+  $('#bLlamar').disabled=!on||(estricto&&s!=='REPOSO');
+  $('#bCont').disabled=$('#bRech').disabled=!on||(estricto&&s!=='TIMBRANDO');
+  $('#bCol').disabled=!on||(estricto&&!['LLAMANDO','TIMBRANDO','EN LLAMADA'].includes(s));
+  if(s!=='EN LLAMADA')vaciarCola();
+  clearInterval(ringT); if(s==='TIMBRANDO'){timbre();ringT=setInterval(timbre,1500)}
+}
+async function conectar(){
+  let p;
+  try{p=await navigator.serial.requestPort()}
+  catch(e){log(e.name==='NotFoundError'?'No elegiste ningún puerto.':'No se pudo abrir el selector: '+e.message,'err');return}
+  abrir(p);
+}
+async function abrir(p){
+  if(activo||cerrando||abriendo)return; abriendo=true;
+  $('#bCon').disabled=true;
+  try{
+    port=ultimo=p; manual=false; avisado=false;
+    ctx=new AudioContext({sampleRate:8000,latencyHint:'interactive'}); ctx.resume().catch(()=>{});
+    ctx.onstatechange=()=>{if(activo&&ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{})};
+    await p.open({baudRate:+$('#baud').value,bufferSize:65536});
+    try{await p.setSignals({dataTerminalReady:false,requestToSend:false})}catch{}   // no dejar al ESP32 en reset/bootloader
+    writer=p.writable.getWriter(); activo=true; pend=0; leyendo=leer(p);
+    $('#fw').disabled=$('#baud').disabled=true;
+    $('#bCon').textContent='Desconectar'; $('#bCon').classList.add('sec');
+    log('ESP32 conectado a '+$('#baud').value+' baudios.');
+    setState('REPOSO');
+    try{await iniciarAudio()}catch(e){log('Audio: '+e.message+' (los comandos siguen funcionando)','err')}
+    activarAudio(); setTimeout(activarAudio,3000);   // el ESP32 puede reiniciarse al abrir el puerto
+  }catch(e){
+    log('No se pudo conectar: '+e.message+(e.name==='NetworkError'?'  (cierra el Monitor Serial de Arduino u otra pestaña que use el puerto)':''),'err');
+    await desconectar();
+  }finally{abriendo=false;$('#bCon').disabled=false}
+}
+async function desconectar(){
+  if(cerrando)return; cerrando=true;
+  const hubo=activo; activo=false;
+  try{if(writer&&hubo&&modo()==='adpcm'){cmd('/audio 0',1);await esperar(120)}}catch{}
+  try{await reader?.cancel()}catch{}
+  try{await Promise.race([leyendo,esperar(1000)])}catch{}
+  try{if(writer)await Promise.race([writer.close(),esperar(400)])}catch{}
+  try{writer?.releaseLock()}catch{}
+  try{if(port)await Promise.race([port.close(),esperar(1500)])}catch{}
+  try{mic?.getTracks().forEach(t=>t.stop())}catch{}
+  try{play?.disconnect();cap?.disconnect()}catch{}
+  try{if(ctx){ctx.onstatechange=null;await ctx.close()}}catch{}
+  port=writer=reader=leyendo=play=cap=gain=ctx=mic=null; fase=0;pos=0;prev=0;ln=[];nPcm=nU8=0;pend=0;
+  $('#fw').disabled=$('#baud').disabled=false;
+  $('#bCon').textContent='Conectar ESP32'; $('#bCon').classList.remove('sec');
+  $('#nodo').textContent='Sin nodo'; setState('DESCONECTADO');
+  cerrando=false;
+}
+async function perdido(msg){                  // conexión perdida sin que el usuario la cerrara: reintenta sola
+  log(msg,'err'); const p=port; await desconectar();
+  if(!manual&&p){log('Reintentando conectar…');setTimeout(()=>abrir(p),1200)}
+}
+$('#bCon').onclick=()=>{if(activo){manual=true;desconectar()}else conectar()};
+$('#fw').onchange=()=>{$('#baud').value=modo()==='b64'?'500000':'460800'};
+$('#dest').oninput=()=>{destSucio=true};
+$('#bLlamar').onclick=()=>cmd('/llamar '+(+$('#dest').value));
+$('#bCont').onclick=()=>cmd('/contestar');
+$('#bRech').onclick=()=>cmd(modo()==='adpcm'?'/rechazar':'/colgar');
+$('#bCol').onclick=()=>cmd('/colgar');
+$('#bMute').onclick=e=>{silencio=!silencio;e.target.textContent=silencio?'Activar micrófono':'Silenciar micrófono'};
+$('#vol').oninput=e=>{if(gain)gain.gain.value=e.target.value};
+const hist=[];let hi=0;
+$('#cmd').onkeydown=e=>{
+  if(e.key==='ArrowUp'&&hist.length){hi=Math.max(0,hi-1);e.target.value=hist[hi];e.preventDefault()}
+  else if(e.key==='ArrowDown'){hi=Math.min(hist.length,hi+1);e.target.value=hist[hi]||'';e.preventDefault()}
+};
+$('#fCmd').onsubmit=e=>{e.preventDefault();const v=$('#cmd').value.trim();if(v){hist.push(v);hi=hist.length;cmd(v)}$('#cmd').value=''};
+if(!('serial' in navigator)){$('#aviso').style.display='block';$('#bCon').disabled=true}
+else{
+  navigator.serial.addEventListener('disconnect',e=>{if(activo&&e.target===port)perdido('Se desconectó el USB (¿el ESP32 se reinició?). Espero a que vuelva…')});
+  navigator.serial.addEventListener('connect',e=>{if(e.target===ultimo&&!activo&&!manual){log('Dispositivo de vuelta, reconectando…');setTimeout(()=>abrir(ultimo),800)}});
+}
+setInterval(()=>{$('#mL').style.width=Math.min(100,lvlL*130)+'%';$('#mR').style.width=Math.min(100,lvlR*130)+'%';lvlL*=.6;lvlR*=.6},60);
+setInterval(()=>{if(activo)$('#stats').textContent=`Enviando ${tx} paq/s · recibiendo ${rx} paq/s · búfer de reproducción ${bufMs|0} ms`;tx=rx=0},1000);
+</script>
+</body>
+</html>
