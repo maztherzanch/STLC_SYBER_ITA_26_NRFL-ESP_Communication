@@ -1,9 +1,12 @@
 /*
-  CENTRAL TELEFONICA v2.1 (propia) - Topologia estrella con nRF24L01+ PA+LNA
+  CENTRAL TELEFONICA v2.2 (red propia) - Topologia estrella con nRF24L01+ PA+LNA
   --------------------------------------------------------------------------
-  Es compatible con los nodos que ya funcionan con la central v2: NO cambia el
-  protocolo (mismos tipos de paquete, misma direccion de 5 bytes, canal de
-  control 80, mismo tamano de 32 bytes). Solo mejora lo que hace la central.
+  RED PROPIA: esta central NO comparte red con la central de otro equipo que
+  trabaja en el mismo lugar. Para eso usa su propio NOMBRE_RED (parte de la
+  direccion de cada nodo) y su propio CANAL_CONTROL, y evita el canal de control
+  de la otra red. El protocolo (tipos de paquete, 32 bytes) sigue igual.
+  IMPORTANTE: NOMBRE_RED y CANAL_CONTROL deben ser IDENTICOS en esta central y en
+  TODOS los nodos de esta red (ver el bloque "RED PROPIA" mas abajo).
 
   La central nunca transporta audio: el audio va de nodo a nodo en el canal que
   la central asigna. Por eso la calidad del audio depende de ELEGIR BIEN ese
@@ -76,11 +79,17 @@
   #error "Placa no soportada: elige ESP32S3, ESP32C3 o ESP32 Dev Module en Tools -> Board"
 #endif
 
-// ======================= PROTOCOLO (NO CAMBIAR: igual en central y nodos) =======================
+// ================= RED PROPIA (IDENTICO en la central y en TODOS los nodos) =================
+#define NOMBRE_RED     "ITA1"    // exactamente 4 letras; distinto al de la otra red ("NODE")
+#define CANAL_CONTROL  76        // 2476 MHz; la otra red usa el 80
 #define ID_CENTRAL     0
-#define CANAL_CONTROL  80        // 2480 MHz: donde todos esperan y piden llamadas
 #define CANAL_MIN      0         // 0..83 = 2400..2483 MHz (banda ISM de uso libre)
 #define CANAL_MAX      83
+// Red ajena en el mismo aire: su canal de control y cuantos canales a cada lado
+// no se usaran para llamadas. Sus llamadas se detectan solas como interferencia.
+#define CANAL_AJENO    80
+#define AJENO_MARGEN   2
+// ======================= PROTOCOLO (no cambiar) =======================
 
 enum Tipo : uint8_t {
   REGISTRO = 1, LLAMAR, CONTESTAR, RECHAZAR, LIBERAR,      // nodo -> central
@@ -117,8 +126,9 @@ struct Nodo { uint8_t id; unsigned long visto; };
 enum EstadoLlamada : uint8_t { LIBRE = 0, TIMBRANDO, EN_CURSO };
 struct Llamada { EstadoLlamada estado; uint8_t origen, destino, canal; unsigned long desde; };
 
+static_assert(sizeof(NOMBRE_RED) == 5, "NOMBRE_RED debe tener exactamente 4 letras");
 void direccionDe(uint8_t id, uint8_t *dir) {
-  dir[0] = id; dir[1] = 'N'; dir[2] = 'O'; dir[3] = 'D'; dir[4] = 'E';
+  dir[0] = id; dir[1] = NOMBRE_RED[0]; dir[2] = NOMBRE_RED[1]; dir[3] = NOMBRE_RED[2]; dir[4] = NOMBRE_RED[3];
 }
 
 RF24 radio(PIN_CE, PIN_CSN);
@@ -254,6 +264,8 @@ uint8_t medirCanal(uint8_t c, uint8_t muestras) {
   return conSenal * 100 / muestras;
 }
 
+bool canalAjeno(int c) { return abs(c - CANAL_AJENO) <= AJENO_MARGEN; }
+
 // Canal de control, canales de llamada y sus vecinos inmediatos: ahi la "senal"
 // son nuestros propios nodos (o su fuga al canal de al lado), no interferencia.
 bool cercaDeOcupado(int c) {
@@ -289,7 +301,7 @@ bool enBandaWiFi(int c) { return (c >= 1 && c <= 23) || (c >= 26 && c <= 48) || 
 int puntaje(int c) { return ruidoEfectivo(c) + (enBandaWiFi(c) ? PENAL_WIFI : 0); }   // menor = mejor
 
 int distanciaAOcupados(int c) {
-  int d = abs(c - CANAL_CONTROL);
+  int d = min((int)abs(c - CANAL_CONTROL), (int)abs(c - CANAL_AJENO));
   for (int i = 0; i < MAX_LLAMADAS; i++)
     if (llamadas[i].estado != LIBRE) d = min(d, (int)abs(c - (int)llamadas[i].canal));
   return d;
@@ -301,7 +313,7 @@ int elegirCanal() {
   for (int pasada = 0; pasada < 2; pasada++) {
     int mejor = -1, mejorDist = -1, mejorPuntaje = 9999;
     for (int c = CANAL_MIN; c <= CANAL_MAX; c++) {
-      if (c == CANAL_CONTROL || llamadaEnCanal(c) >= 0) continue;
+      if (c == CANAL_CONTROL || canalAjeno(c) || llamadaEnCanal(c) >= 0) continue;
       if (pasada == 0 && ruidoEfectivo(c) > UMBRAL_RUIDO) continue;
       int dist = min(distanciaAOcupados(c), 6), pt = puntaje(c);
       if (dist > mejorDist || (dist == mejorDist && pt < mejorPuntaje)) {
@@ -483,13 +495,14 @@ void mostrarCanales() {
   for (int c = CANAL_MIN; c <= CANAL_MAX; c++) {
     char s;
     if (c == CANAL_CONTROL)                    s = 'C';
+    else if (canalAjeno(c))                  s = 'A';
     else if (llamadaEnCanal(c) >= 0)         { s = 'L'; enUso++; }
     else if (ruidoEfectivo(c) > UMBRAL_RUIDO){ s = 'x'; conRuido++; }
     else                                     { s = '.'; libres++; }
     Serial.print(s);
   }
   Serial.println();
-  Serial.println("  .=libre  L=llamada  C=control  x=interferencia (decenas arriba: 0=0-9, 1=10-19...)");
+  Serial.println("  .=libre  L=llamada  C=control  A=reservado (otra red)  x=interferencia (decenas arriba: 0=0-9, 1=10-19...)");
   Serial.printf("  Libres: %d   En llamada: %d   Con interferencia: %d\n", libres, enUso, conRuido);
   bool alguna = false;
   for (int i = 0; i < MAX_LLAMADAS; i++) {
@@ -607,7 +620,9 @@ void setup() {
   radio.startListening();
   ledModo(1);
 
-  Serial.printf("=== CENTRAL TELEFONICA v2.1 lista (%s) ===\n", PLACA);
+  Serial.printf("=== CENTRAL TELEFONICA v2.2 lista (%s) ===\n", PLACA);
+  Serial.printf("Red \"%s\", canal de control %d (%d MHz). Red ajena: canal %d +-%d reservado.\n",
+                NOMBRE_RED, CANAL_CONTROL, 2400 + CANAL_CONTROL, CANAL_AJENO, AJENO_MARGEN);
   mostrarCanales();
   mostrarAyuda();
 }
